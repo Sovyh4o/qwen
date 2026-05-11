@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Dungeon Crawler</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+
+        #gameContainer {
+            position: relative;
+            border: 2px solid #0ff;
+            box-shadow: 0 0 20px #0ff, inset 0 0 20px rgba(0, 255, 255, 0.1);
+        }
+
+        canvas {
+            display: block;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
+        }
+
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #0ff;
+            font-size: 16px;
+            text-shadow: 0 0 10px #0ff;
+            pointer-events: none;
+        }
+
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 24px;
+            text-align: center;
+            text-shadow: 0 0 20px #0ff;
+            pointer-events: none;
+            display: none;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border: 2px solid #0ff;
+            border-radius: 10px;
+        }
+
+        .health-bar {
+            width: 200px;
+            height: 20px;
+            background: #333;
+            border: 2px solid #f00;
+            margin-top: 5px;
+            position: relative;
+        }
+
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f00, #ff0);
+            transition: width 0.3s;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: #888;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui">
+            <div>Здоровье:</div>
+            <div class="health-bar">
+                <div class="health-fill" id="healthFill" style="width: 100%;"></div>
+            </div>
+            <div style="margin-top: 10px;">Золото: <span id="goldCount">0</span></div>
+            <div>Уровень: <span id="levelCount">1</span></div>
+            <div>Врагов осталось: <span id="enemyCount">0</span></div>
+        </div>
+        <div id="message"></div>
+        <div id="controls">WASD/Стрелки - движение | Пробел - атака</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Настройки игры
+        const TILE_SIZE = 40;
+        const MAP_WIDTH = 20;
+        const MAP_HEIGHT = 15;
+        canvas.width = MAP_WIDTH * TILE_SIZE;
+        canvas.height = MAP_HEIGHT * TILE_SIZE;
+
+        // Состояние игры
+        let gameState = 'playing'; // playing, won, lost
+        let level = 1;
+        let gold = 0;
+        
+        // Игрок
+        const player = {
+            x: 1,
+            y: 1,
+            health: 100,
+            maxHealth: 100,
+            attack: 25,
+            direction: { x: 0, y: 1 },
+            isAttacking: false,
+            attackTimer: 0
+        };
+
+        // Карта и объекты
+        let map = [];
+        let enemies = [];
+        let items = [];
+        let particles = [];
+        let exit = null;
+
+        // Типы тайлов
+        const TILE = {
+            FLOOR: 0,
+            WALL: 1,
+            EXIT: 2
+        };
+
+        // Генерация карты
+        function generateMap() {
+            map = [];
+            for (let y = 0; y < MAP_HEIGHT; y++) {
+                map[y] = [];
+                for (let x = 0; x < MAP_WIDTH; x++) {
+                    if (x === 0 || x === MAP_WIDTH - 1 || y === 0 || y === MAP_HEIGHT - 1) {
+                        map[y][x] = TILE.WALL;
+                    } else {
+                        map[y][x] = Math.random() < 0.2 ? TILE.WALL : TILE.FLOOR;
+                    }
+                }
+            }
+
+            // Очищаем область вокруг игрока
+            for (let dy = -2; dy <= 2; dy++) {
+                for (let dx = -2; dx <= 2; dx++) {
+                    const nx = player.x + dx;
+                    const ny = player.y + dy;
+                    if (nx > 0 && nx < MAP_WIDTH - 1 && ny > 0 && ny < MAP_HEIGHT - 1) {
+                        map[ny][nx] = TILE.FLOOR;
+                    }
+                }
+            }
+
+            // Размещаем выход
+            let exitPlaced = false;
+            while (!exitPlaced) {
+                const ex = Math.floor(Math.random() * (MAP_WIDTH - 2)) + 1;
+                const ey = Math.floor(Math.random() * (MAP_HEIGHT - 2)) + 1;
+                if (map[ey][ex] === TILE.FLOOR && (Math.abs(ex - player.x) > 5 || Math.abs(ey - player.y) > 5)) {
+                    exit = { x: ex, y: ey };
+                    exitPlaced = true;
+                }
+            }
+
+            // Размещаем врагов
+            enemies = [];
+            const enemyCount = 3 + level;
+            for (let i = 0; i < enemyCount; i++) {
+                let placed = false;
+                while (!placed) {
+                    const ex = Math.floor(Math.random() * (MAP_WIDTH - 2)) + 1;
+                    const ey = Math.floor(Math.random() * (MAP_HEIGHT - 2)) + 1;
+                    if (map[ey][ex] === TILE.FLOOR && 
+                        (ex !== player.x || ey !== player.y) &&
+                        (ex !== exit.x || ey !== exit.y) &&
+                        Math.abs(ex - player.x) + Math.abs(ey - player.y) > 4) {
+                        enemies.push({
+                            x: ex,
+                            y: ey,
+                            health: 30 + level * 10,
+                            maxHealth: 30 + level * 10,
+                            attack: 5 + level * 2,
+                            type: Math.floor(Math.random() * 3)
+                        });
+                        placed = true;
+                    }
+                }
+            }
+
+            // Размещаем предметы
+            items = [];
+            const itemCount = 2 + Math.floor(level / 2);
+            for (let i = 0; i < itemCount; i++) {
+                let placed = false;
+                while (!placed) {
+                    const ix = Math.floor(Math.random() * (MAP_WIDTH - 2)) + 1;
+                    const iy = Math.floor(Math.random() * (MAP_HEIGHT - 2)) + 1;
+                    if (map[iy][ix] === TILE.FLOOR && 
+                        (ix !== player.x || iy !== player.y) &&
+                        (ix !== exit.x || iy !== exit.y)) {
+                        const itemType = Math.random() < 0.6 ? 'gold' : 'potion';
+                        items.push({
+                            x: ix,
+                            y: iy,
+                            type: itemType,
+                            value: itemType === 'gold' ? Math.floor(Math.random() * 20) + 10 : 25
+                        });
+                        placed = true;
+                    }
+                }
+            }
+        }
+
+        // Создание частиц
+        function createParticles(x, y, color, count = 10) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x * TILE_SIZE + TILE_SIZE / 2,
+                    y: y * TILE_SIZE + TILE_SIZE / 2,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    life: 1.0,
+                    color: color,
+                    size: Math.random() * 4 + 2
+                });
+            }
+        }
+
+        // Обновление частиц
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.02;
+                p.size *= 0.95;
+                
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        // Отрисовка частиц
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.shadowColor = p.color;
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0;
+            ctx.shadowBlur = 0;
+        }
+
+        // Движение игрока
+        function movePlayer(dx, dy) {
+            if (gameState !== 'playing') return;
+            
+            const newX = player.x + dx;
+            const newY = player.y + dy;
+            
+            if (dx !== 0 || dy !== 0) {
+                player.direction = { x: dx, y: dy };
+            }
+
+            if (newX < 0 || newX >= MAP_WIDTH || newY < 0 || newY >= MAP_HEIGHT) return;
+            if (map[newY][newX] === TILE.WALL) return;
+
+            // Проверка на врага
+            const enemy = enemies.find(e => e.x === newX && e.y === newY);
+            if (enemy) {
+                attackEnemy(enemy);
+                return;
+            }
+
+            player.x = newX;
+            player.y = newY;
+
+            // Проверка на предмет
+            const itemIndex = items.findIndex(item => item.x === newX && item.y === newY);
+            if (itemIndex !== -1) {
+                const item = items[itemIndex];
+                if (item.type === 'gold') {
+                    gold += item.value;
+                    createParticles(newX, newY, '#ffd700', 15);
+                    showMessage(`+${item.value} золота!`, 1000);
+                } else if (item.type === 'potion') {
+                    player.health = Math.min(player.maxHealth, player.health + item.value);
+                    createParticles(newX, newY, '#0f0', 15);
+                    showMessage(`+${item.value} здоровья!`, 1000);
+                }
+                items.splice(itemIndex, 1);
+            }
+
+            // Проверка на выход (только если все враги убиты)
+            if (exit && player.x === exit.x && player.y === exit.y && enemies.length === 0) {
+                nextLevel();
+            }
+
+            updateUI();
+        }
+
+        // Атака игрока
+        function attackEnemy(enemy) {
+            if (player.isAttacking) return;
+            
+            player.isAttacking = true;
+            player.attackTimer = 10;
+            
+            enemy.health -= player.attack;
+            createParticles(enemy.x, enemy.y, '#f00', 20);
+            showMessage(`Удар! -${player.attack}`, 500);
+
+            if (enemy.health <= 0) {
+                const index = enemies.indexOf(enemy);
+                if (index > -1) {
+                    enemies.splice(index, 1);
+                    createParticles(enemy.x, enemy.y, '#ff0', 30);
+                    showMessage('Враг повержен!', 1000);
+                }
+            }
+
+            updateUI();
+        }
+
+        // Ход врагов
+        function enemyTurn() {
+            enemies.forEach(enemy => {
+                const dx = player.x - enemy.x;
+                const dy = player.y - enemy.y;
+                const dist = Math.abs(dx) + Math.abs(dy);
+
+                if (dist === 1) {
+                    // Атака игрока
+                    player.health -= enemy.attack;
+                    createParticles(player.x, player.y, '#f0f', 15);
+                    showMessage(`Вас ударили! -${enemy.attack}`, 500);
+                    
+                    if (player.health <= 0) {
+                        gameOver();
+                    }
+                } else if (dist < 8) {
+                    // Преследование
+                    let moveX = 0, moveY = 0;
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        moveX = dx > 0 ? 1 : -1;
+                    } else {
+                        moveY = dy > 0 ? 1 : -1;
+                    }
+
+                    const newX = enemy.x + moveX;
+                    const newY = enemy.y + moveY;
+
+                    if (map[newY][newX] !== TILE.WALL && 
+                        !enemies.some(e => e.x === newX && e.y === newY) &&
+                        !(newX === player.x && newY === player.y)) {
+                        enemy.x = newX;
+                        enemy.y = newY;
+                    }
+                }
+            });
+
+            updateUI();
+        }
+
+        // Следующий уровень
+        function nextLevel() {
+            level++;
+            player.x = 1;
+            player.y = 1;
+            generateMap();
+            showMessage(`Уровень ${level}!`, 2000);
+            updateUI();
+        }
+
+        // Конец игры
+        function gameOver() {
+            gameState = 'lost';
+            showMessage(`ИГРА ОКОНЧЕНА\nВы достигли уровня ${level}\nЗолото: ${gold}\nНажмите R для рестарта`, 0);
+        }
+
+        // Победа (условная, так как уровни бесконечные)
+        function showWin() {
+            gameState = 'won';
+            showMessage(`ПОБЕДА!\nУровень: ${level}\nЗолото: ${gold}\nНажмите R для новой игры`, 0);
+        }
+
+        // Показать сообщение
+        function showMessage(text, duration) {
+            const msgEl = document.getElementById('message');
+            msgEl.textContent = text;
+            msgEl.style.display = 'block';
+            
+            if (duration > 0) {
+                setTimeout(() => {
+                    if (gameState === 'playing') {
+                        msgEl.style.display = 'none';
+                    }
+                }, duration);
+            }
+        }
+
+        // Обновление UI
+        function updateUI() {
+            document.getElementById('healthFill').style.width = `${(player.health / player.maxHealth) * 100}%`;
+            document.getElementById('goldCount').textContent = gold;
+            document.getElementById('levelCount').textContent = level;
+            document.getElementById('enemyCount').textContent = enemies.length;
+        }
+
+        // Отрисовка игры
+        function draw() {
+            // Очистка
+            ctx.fillStyle = '#0f0f1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Рисуем карту
+            for (let y = 0; y < MAP_HEIGHT; y++) {
+                for (let x = 0; x < MAP_WIDTH; x++) {
+                    const tile = map[y][x];
+                    const px = x * TILE_SIZE;
+                    const py = y * TILE_SIZE;
+
+                    if (tile === TILE.WALL) {
+                        ctx.fillStyle = '#2a2a4a';
+                        ctx.shadowColor = '#4a4a8a';
+                        ctx.shadowBlur = 5;
+                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                    } else if (tile === TILE.EXIT) {
+                        ctx.fillStyle = '#0f0';
+                        ctx.shadowColor = '#0f0';
+                        ctx.shadowBlur = 15;
+                        ctx.fillRect(px + 5, py + 5, TILE_SIZE - 10, TILE_SIZE - 10);
+                    } else {
+                        ctx.fillStyle = '#1a1a2e';
+                        ctx.shadowBlur = 0;
+                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+
+            // Рисуем выход, если все враги убиты
+            if (exit && enemies.length === 0) {
+                const px = exit.x * TILE_SIZE;
+                const py = exit.y * TILE_SIZE;
+                ctx.fillStyle = '#0f0';
+                ctx.shadowColor = '#0f0';
+                ctx.shadowBlur = 20;
+                ctx.fillRect(px + 5, py + 5, TILE_SIZE - 10, TILE_SIZE - 10);
+                
+                // Анимация портала
+                const pulse = Math.sin(Date.now() / 200) * 5 + 10;
+                ctx.strokeStyle = '#0f0';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(px + 5, py + 5, TILE_SIZE - 10, TILE_SIZE - 10);
+            }
+
+            // Рисуем предметы
+            items.forEach(item => {
+                const px = item.x * TILE_SIZE + TILE_SIZE / 2;
+                const py = item.y * TILE_SIZE + TILE_SIZE / 2;
+                
+                if (item.type === 'gold') {
+                    ctx.fillStyle = '#ffd700';
+                    ctx.shadowColor = '#ffd700';
+                    ctx.shadowBlur = 10;
+                    ctx.beginPath();
+                    ctx.arc(px, py, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (item.type === 'potion') {
+                    ctx.fillStyle = '#0f0';
+                    ctx.shadowColor = '#0f0';
+                    ctx.shadowBlur = 10;
+                    ctx.beginPath();
+                    ctx.arc(px, py, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(px - 2, py - 8, 4, 4);
+                }
+            });
+
+            // Рисуем врагов
+            enemies.forEach(enemy => {
+                const px = enemy.x * TILE_SIZE;
+                const py = enemy.y * TILE_SIZE;
+                
+                const colors = ['#f00', '#f80', '#f0f'];
+                ctx.fillStyle = colors[enemy.type % colors.length];
+                ctx.shadowColor = colors[enemy.type % colors.length];
+                ctx.shadowBlur = 10;
+                
+                // Тело врага
+                ctx.fillRect(px + 5, py + 5, TILE_SIZE - 10, TILE_SIZE - 10);
+                
+                // Полоска здоровья
+                const healthWidth = (enemy.health / enemy.maxHealth) * (TILE_SIZE - 10);
+                ctx.fillStyle = '#333';
+                ctx.fillRect(px + 5, py + 2, TILE_SIZE - 10, 4);
+                ctx.fillStyle = '#f00';
+                ctx.fillRect(px + 5, py + 2, healthWidth, 4);
+            });
+
+            // Рисуем игрока
+            const playerPx = player.x * TILE_SIZE;
+            const playerPy = player.y * TILE_SIZE;
+            
+            ctx.fillStyle = '#0ff';
+            ctx.shadowColor = '#0ff';
+            ctx.shadowBlur = 15;
+            
+            // Тело игрока
+            ctx.fillRect(playerPx + 5, playerPy + 5, TILE_SIZE - 10, TILE_SIZE - 10);
+            
+            // Эффект атаки
+            if (player.isAttacking) {
+                const attackX = playerPx + player.direction.x * TILE_SIZE;
+                const attackY = playerPy + player.direction.y * TILE_SIZE;
+                
+                ctx.fillStyle = '#fff';
+                ctx.shadowColor = '#fff';
+                ctx.shadowBlur = 20;
+                ctx.fillRect(attackX + 10, attackY + 10, TILE_SIZE - 20, TILE_SIZE - 20);
+            }
+
+            // Рисуем частицы
+            drawParticles();
+
+            ctx.shadowBlur = 0;
+        }
+
+        // Игровой цикл
+        function gameLoop() {
+            if (player.isAttacking) {
+                player.attackTimer--;
+                if (player.attackTimer <= 0) {
+                    player.isAttacking = false;
+                }
+            }
+
+            updateParticles();
+            enemyTurn();
+            draw();
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Управление
+        document.addEventListener('keydown', (e) => {
+            if (gameState === 'playing') {
+                switch(e.key) {
+                    case 'w':
+                    case 'W':
+                    case 'ArrowUp':
+                        movePlayer(0, -1);
+                        break;
+                    case 's':
+                    case 'S':
+                    case 'ArrowDown':
+                        movePlayer(0, 1);
+                        break;
+                    case 'a':
+                    case 'A':
+                    case 'ArrowLeft':
+                        movePlayer(-1, 0);
+                        break;
+                    case 'd':
+                    case 'D':
+                    case 'ArrowRight':
+                        movePlayer(1, 0);
+                        break;
+                    case ' ':
+                        // Атака в направлении движения
+                        const attackX = player.x + player.direction.x;
+                        const attackY = player.y + player.direction.y;
+                        const enemy = enemies.find(e => e.x === attackX && e.y === attackY);
+                        if (enemy) {
+                            attackEnemy(enemy);
+                        } else {
+                            // Анимация атаки в пустоту
+                            player.isAttacking = true;
+                            player.attackTimer = 10;
+                            createParticles(attackX, attackY, '#0ff', 10);
+                        }
+                        break;
+                }
+            } else if ((gameState === 'won' || gameState === 'lost') && e.key === 'r') {
+                // Рестарт
+                level = 1;
+                gold = 0;
+                player.health = player.maxHealth;
+                player.x = 1;
+                player.y = 1;
+                gameState = 'playing';
+                document.getElementById('message').style.display = 'none';
+                generateMap();
+                updateUI();
+            }
+        });
+
+        // Инициализация
+        generateMap();
+        updateUI();
+        gameLoop();
+    </script>
+</body>
+</html>
