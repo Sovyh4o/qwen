@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Particle Flow</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            min-width: 250px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls h2 {
+            margin-bottom: 15px;
+            font-size: 18px;
+            text-align: center;
+            background: linear-gradient(45deg, #ff00cc, #3333ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #ff00cc, #3333ff);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(255, 0, 204, 0.5);
+        }
+
+        .control-group select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .control-group select option {
+            background: #1a1a2e;
+            color: white;
+        }
+
+        .stats {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(45deg, #ff00cc, #3333ff);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 0, 204, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 0, 204, 0.5);
+        }
+
+        .title {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(255, 0, 204, 0.5);
+            pointer-events: none;
+        }
+
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            text-align: center;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="title">🌌 Cosmic Particle Flow</div>
+    <canvas id="canvas"></canvas>
+    
+    <div class="controls">
+        <h2>⚙️ Настройки</h2>
+        
+        <div class="control-group">
+            <label>Количество частиц: <span id="countValue">150</span></label>
+            <input type="range" id="particleCount" min="50" max="500" value="150">
+        </div>
+        
+        <div class="control-group">
+            <label>Скорость: <span id="speedValue">1.0</span></label>
+            <input type="range" id="speed" min="0.1" max="3.0" step="0.1" value="1.0">
+        </div>
+        
+        <div class="control-group">
+            <label>Размер частиц: <span id="sizeValue">3</span></label>
+            <input type="range" id="size" min="1" max="10" value="3">
+        </div>
+        
+        <div class="control-group">
+            <label>Режим движения:</label>
+            <select id="mode">
+                <option value="flow">Поток</option>
+                <option value="swirl">Вихрь</option>
+                <option value="bounce">Отскок</option>
+                <option value="gravity">Гравитация</option>
+                <option value="mouse">За мышью</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label>Цветовая схема:</label>
+            <select id="colorScheme">
+                <option value="neon">Неон</option>
+                <option value="ocean">Океан</option>
+                <option value="fire">Огонь</option>
+                <option value="galaxy">Галактика</option>
+                <option value="rainbow">Радуга</option>
+            </select>
+        </div>
+        
+        <button class="btn" id="resetBtn">🔄 Сбросить</button>
+        
+        <div class="stats">
+            FPS: <span id="fps">0</span><br>
+            Частиц: <span id="particleStats">0</span>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        Двигайте мышью для взаимодействия • Кликните для всплеска
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width, height;
+        let particles = [];
+        let mouse = { x: 0, y: 0, clicked: false };
+        let settings = {
+            count: 150,
+            speed: 1.0,
+            size: 3,
+            mode: 'flow',
+            colorScheme: 'neon'
+        };
+        
+        let lastTime = 0;
+        let frameCount = 0;
+        let fps = 0;
+        
+        // Color schemes
+        const colorSchemes = {
+            neon: ['#ff00cc', '#3333ff', '#00ffff', '#ff0066', '#9900ff'],
+            ocean: ['#0066cc', '#0099ff', '#00cccc', '#66ffff', '#003366'],
+            fire: ['#ff0000', '#ff6600', '#ffcc00', '#ff3300', '#cc0000'],
+            galaxy: ['#9900ff', '#ff00cc', '#0066ff', '#ff0066', '#cc00ff'],
+            rainbow: ['#ff0000', '#ff9900', '#ffff00', '#00ff00', '#0099ff', '#9900ff']
+        };
+        
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 2 * settings.speed;
+                this.vy = (Math.random() - 0.5) * 2 * settings.speed;
+                this.size = Math.random() * settings.size + 1;
+                this.color = colorSchemes[settings.colorScheme][Math.floor(Math.random() * colorSchemes[settings.colorScheme].length)];
+                this.life = Math.random() * 100 + 50;
+                this.maxLife = this.life;
+                this.angle = Math.random() * Math.PI * 2;
+                this.angleSpeed = (Math.random() - 0.5) * 0.1;
+            }
+            
+            update() {
+                const centerX = width / 2;
+                const centerY = height / 2;
+                
+                switch(settings.mode) {
+                    case 'flow':
+                        this.x += Math.sin(this.y * 0.01 + Date.now() * 0.001) * 2 * settings.speed;
+                        this.y += Math.cos(this.x * 0.01 + Date.now() * 0.001) * 2 * settings.speed;
+                        break;
+                        
+                    case 'swirl':
+                        const dx = this.x - centerX;
+                        const dy = this.y - centerY;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist > 0) {
+                            const angle = Math.atan2(dy, dx);
+                            const swirlAngle = angle + Math.PI / 2;
+                            this.vx = Math.cos(swirlAngle) * 2 * settings.speed;
+                            this.vy = Math.sin(swirlAngle) * 2 * settings.speed;
+                            this.x += this.vx;
+                            this.y += this.vy;
+                        }
+                        break;
+                        
+                    case 'bounce':
+                        this.x += this.vx;
+                        this.y += this.vy;
+                        if (this.x <= 0 || this.x >= width) this.vx *= -1;
+                        if (this.y <= 0 || this.y >= height) this.vy *= -1;
+                        break;
+                        
+                    case 'gravity':
+                        this.x += this.vx;
+                        this.y += this.vy;
+                        this.vy += 0.05 * settings.speed;
+                        if (this.y > height) {
+                            this.y = height;
+                            this.vy *= -0.7;
+                        }
+                        if (this.x < 0 || this.x > width) this.vx *= -1;
+                        break;
+                        
+                    case 'mouse':
+                        const mdx = mouse.x - this.x;
+                        const mdy = mouse.y - this.y;
+                        const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+                        if (mDist > 0) {
+                            this.vx = (mdx / mDist) * 3 * settings.speed;
+                            this.vy = (mdy / mDist) * 3 * settings.speed;
+                        }
+                        this.x += this.vx * 0.1;
+                        this.y += this.vy * 0.1;
+                        break;
+                }
+                
+                // Boundary wrap for most modes
+                if (settings.mode !== 'bounce' && settings.mode !== 'gravity') {
+                    if (this.x < 0) this.x = width;
+                    if (this.x > width) this.x = 0;
+                    if (this.y < 0) this.y = height;
+                    if (this.y > height) this.y = 0;
+                }
+                
+                this.life--;
+                if (this.life <= 0) {
+                    this.reset();
+                }
+                
+                this.angle += this.angleSpeed;
+            }
+            
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+        
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < settings.count; i++) {
+                particles.push(new Particle());
+            }
+            document.getElementById('particleStats').textContent = particles.length;
+        }
+        
+        function animate(timestamp) {
+            // Calculate FPS
+            if (timestamp - lastTime >= 1000) {
+                fps = frameCount;
+                frameCount = 0;
+                lastTime = timestamp;
+                document.getElementById('fps').textContent = fps;
+            }
+            frameCount++;
+            
+            // Clear with fade effect
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Update and draw particles
+            particles.forEach(particle => {
+                particle.update();
+                particle.draw();
+            });
+            
+            // Draw connections between nearby particles
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 100) {
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // Event listeners
+        window.addEventListener('resize', () => {
+            resize();
+            initParticles();
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+        
+        canvas.addEventListener('click', () => {
+            // Create explosion effect
+            for (let i = 0; i < 20; i++) {
+                const particle = new Particle();
+                particle.x = mouse.x;
+                particle.y = mouse.y;
+                particle.vx = (Math.random() - 0.5) * 10;
+                particle.vy = (Math.random() - 0.5) * 10;
+                particle.life = 50;
+                particles.push(particle);
+            }
+            // Remove excess particles
+            while (particles.length > settings.count + 50) {
+                particles.shift();
+            }
+            document.getElementById('particleStats').textContent = particles.length;
+        });
+        
+        // Control listeners
+        document.getElementById('particleCount').addEventListener('input', (e) => {
+            settings.count = parseInt(e.target.value);
+            document.getElementById('countValue').textContent = settings.count;
+            initParticles();
+        });
+        
+        document.getElementById('speed').addEventListener('input', (e) => {
+            settings.speed = parseFloat(e.target.value);
+            document.getElementById('speedValue').textContent = settings.speed.toFixed(1);
+        });
+        
+        document.getElementById('size').addEventListener('input', (e) => {
+            settings.size = parseInt(e.target.value);
+            document.getElementById('sizeValue').textContent = settings.size;
+            particles.forEach(p => p.size = Math.random() * settings.size + 1);
+        });
+        
+        document.getElementById('mode').addEventListener('change', (e) => {
+            settings.mode = e.target.value;
+            particles.forEach(p => p.reset());
+        });
+        
+        document.getElementById('colorScheme').addEventListener('change', (e) => {
+            settings.colorScheme = e.target.value;
+            particles.forEach(p => p.color = colorSchemes[settings.colorScheme][Math.floor(Math.random() * colorSchemes[settings.colorScheme].length)]);
+        });
+        
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            initParticles();
+        });
+        
+        // Initialize
+        resize();
+        initParticles();
+        animate(0);
+    </script>
+</body>
+</html>
