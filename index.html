@@ -3,623 +3,573 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neon Dungeon Crawler</title>
+    <title>Cyberpunk Neural Interface</title>
     <style>
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --bg: #050505;
+            --glass: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: 'Courier New', monospace;
         }
 
         body {
-            background: #0a0a0f;
+            background: var(--bg);
+            color: white;
+            overflow: hidden;
+            height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            font-family: 'Courier New', monospace;
+        }
+
+        #canvas-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .interface {
+            position: relative;
+            z-index: 10;
+            width: 90%;
+            max-width: 1200px;
+            height: 85vh;
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            box-shadow: 0 0 40px rgba(0, 243, 255, 0.1);
+            display: grid;
+            grid-template-columns: 250px 1fr 300px;
+            grid-template-rows: 80px 1fr 60px;
+            overflow: hidden;
+            animation: fadeIn 1s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            color: var(--primary);
+            text-shadow: 0 0 10px var(--primary);
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #0f0;
+            box-shadow: 0 0 8px #0f0;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .sidebar {
+            padding: 20px;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .main-content {
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .panel {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .panel:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .panel h3 {
+            color: var(--secondary);
+            margin-bottom: 15px;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+        }
+
+        .data-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .data-card:hover {
+            border-color: var(--secondary);
+            background: rgba(188, 19, 254, 0.1);
+        }
+
+        .data-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+
+        .data-label {
+            font-size: 12px;
+            color: #aaa;
+            text-transform: uppercase;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            border-radius: 5px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            position: relative;
             overflow: hidden;
         }
 
-        #gameContainer {
-            position: relative;
-            border: 2px solid #0ff;
-            box-shadow: 0 0 20px #0ff, inset 0 0 20px rgba(0, 255, 255, 0.1);
-        }
-
-        canvas {
-            display: block;
-            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
-        }
-
-        #ui {
+        .btn::before {
+            content: '';
             position: absolute;
-            top: 10px;
-            left: 10px;
-            color: #0ff;
-            font-size: 16px;
-            text-shadow: 0 0 10px #0ff;
-            pointer-events: none;
-        }
-
-        #message {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #fff;
-            font-size: 24px;
-            text-align: center;
-            text-shadow: 0 0 20px #0ff;
-            pointer-events: none;
-            display: none;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px;
-            border: 2px solid #0ff;
-            border-radius: 10px;
-        }
-
-        .health-bar {
-            width: 200px;
-            height: 20px;
-            background: #333;
-            border: 2px solid #f00;
-            margin-top: 5px;
-            position: relative;
-        }
-
-        .health-fill {
+            top: 0;
+            left: -100%;
+            width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, #f00, #ff0);
-            transition: width 0.3s;
+            background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.2), transparent);
+            transition: 0.5s;
         }
 
-        #controls {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            color: #888;
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            background: rgba(0, 243, 255, 0.1);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .log-container {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            overflow-y: auto;
             font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding-left: 10px;
+            border-left: 2px solid var(--border);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .log-entry.system { border-color: var(--primary); color: #ccc; }
+        .log-entry.warning { border-color: #ffaa00; color: #ffcc00; }
+        .log-entry.error { border-color: #ff0055; color: #ff5577; }
+        .log-entry.success { border-color: #00ff88; color: #00ffaa; }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .footer {
+            grid-column: 1 / -1;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            background: rgba(0, 0, 0, 0.3);
+            font-size: 12px;
+            color: #888;
+        }
+
+        .progress-bar {
+            width: 200px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            width: 0%;
+            transition: width 0.5s ease;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        /* Interactive 3D Card */
+        .hero-card {
+            grid-column: 2 / 3;
+            grid-row: 2 / 3;
+            background: linear-gradient(135deg, rgba(0, 243, 255, 0.1), rgba(188, 19, 254, 0.1));
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            transform-style: preserve-3d;
+            perspective: 1000px;
+            cursor: pointer;
+        }
+
+        .hero-title {
+            font-size: 32px;
+            margin-bottom: 15px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+        }
+
+        .hero-desc {
+            color: #ccc;
+            line-height: 1.6;
+            max-width: 500px;
+        }
+
+        @media (max-width: 900px) {
+            .interface {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto;
+                height: auto;
+                min-height: 90vh;
+                margin: 20px 0;
+            }
+            .sidebar, .right-panel {
+                border: none;
+                border-bottom: 1px solid var(--border);
+            }
+            .hero-card {
+                grid-column: 1;
+                grid-row: auto;
+            }
         }
     </style>
 </head>
 <body>
-    <div id="gameContainer">
-        <canvas id="gameCanvas"></canvas>
-        <div id="ui">
-            <div>Здоровье:</div>
-            <div class="health-bar">
-                <div class="health-fill" id="healthFill" style="width: 100%;"></div>
+    <canvas id="canvas-bg"></canvas>
+
+    <div class="interface" id="interface">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">Neural Nexus v2.0</div>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="indicator"></div>
+                    <span>SYSTEM ONLINE</span>
+                </div>
+                <div class="status-item">
+                    <span>CPU: <span id="cpu-load">12%</span></span>
+                </div>
+                <div class="status-item">
+                    <span>MEM: <span id="mem-load">4.2 GB</span></span>
+                </div>
             </div>
-            <div style="margin-top: 10px;">Золото: <span id="goldCount">0</span></div>
-            <div>Уровень: <span id="levelCount">1</span></div>
-            <div>Врагов осталось: <span id="enemyCount">0</span></div>
         </div>
-        <div id="message"></div>
-        <div id="controls">WASD/Стрелки - движение | Пробел - атака</div>
+
+        <!-- Left Sidebar -->
+        <div class="sidebar">
+            <div class="panel">
+                <h3>Navigation</h3>
+                <div class="controls">
+                    <button class="btn" onclick="addLog('Scanning sector...', 'system')">Scan Sector</button>
+                    <button class="btn" onclick="addLog('Optimizing neural pathways...', 'success')">Optimize</button>
+                    <button class="btn" onclick="addLog('Running diagnostics...', 'warning')">Diagnostics</button>
+                    <button class="btn" onclick="addLog('Purge cache initiated.', 'error')">Purge Cache</button>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h3>System Load</h3>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="load-bar"></div>
+                </div>
+                <div style="margin-top: 10px; font-size: 12px; color: #888;">Real-time monitoring</div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="hero-card" id="hero-card">
+                <h1 class="hero-title">Welcome to the Nexus</h1>
+                <p class="hero-desc">Interactive neural interface powered by advanced WebGL rendering. Move your mouse to interact with the 3D environment.</p>
+            </div>
+
+            <div class="panel">
+                <h3>Live Data Stream</h3>
+                <div class="data-grid">
+                    <div class="data-card">
+                        <div class="data-value" id="val-1">0</div>
+                        <div class="data-label">Packets/sec</div>
+                    </div>
+                    <div class="data-card">
+                        <div class="data-value" id="val-2">0</div>
+                        <div class="data-label">Latency (ms)</div>
+                    </div>
+                    <div class="data-card">
+                        <div class="data-value" id="val-3">0</div>
+                        <div class="data-label">Active Nodes</div>
+                    </div>
+                    <div class="data-card">
+                        <div class="data-value" id="val-4">0</div>
+                        <div class="data-label">Encryption</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel -->
+        <div class="sidebar right-panel" style="border-right: none; border-left: 1px solid var(--border);">
+            <div class="panel" style="flex: 1; display: flex; flex-direction: column;">
+                <h3>System Log</h3>
+                <div class="log-container" id="log-container">
+                    <div class="log-entry system">System initialized successfully.</div>
+                    <div class="log-entry system">Neural link established.</div>
+                    <div class="log-entry success">Security protocols active.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div>© 2024 Neural Nexus Industries</div>
+            <div>Connection Secure | Encryption: AES-256</div>
+        </div>
     </div>
 
     <script>
-        const canvas = document.getElementById('gameCanvas');
+        // --- Matrix/Network Background Animation ---
+        const canvas = document.getElementById('canvas-bg');
         const ctx = canvas.getContext('2d');
         
-        // Настройки игры
-        const TILE_SIZE = 40;
-        const MAP_WIDTH = 20;
-        const MAP_HEIGHT = 15;
-        canvas.width = MAP_WIDTH * TILE_SIZE;
-        canvas.height = MAP_HEIGHT * TILE_SIZE;
-
-        // Состояние игры
-        let gameState = 'playing'; // playing, won, lost
-        let level = 1;
-        let gold = 0;
-        
-        // Игрок
-        const player = {
-            x: 1,
-            y: 1,
-            health: 100,
-            maxHealth: 100,
-            attack: 25,
-            direction: { x: 0, y: 1 },
-            isAttacking: false,
-            attackTimer: 0
-        };
-
-        // Карта и объекты
-        let map = [];
-        let enemies = [];
-        let items = [];
+        let width, height;
         let particles = [];
-        let exit = null;
-
-        // Типы тайлов
-        const TILE = {
-            FLOOR: 0,
-            WALL: 1,
-            EXIT: 2
-        };
-
-        // Генерация карты
-        function generateMap() {
-            map = [];
-            for (let y = 0; y < MAP_HEIGHT; y++) {
-                map[y] = [];
-                for (let x = 0; x < MAP_WIDTH; x++) {
-                    if (x === 0 || x === MAP_WIDTH - 1 || y === 0 || y === MAP_HEIGHT - 1) {
-                        map[y][x] = TILE.WALL;
-                    } else {
-                        map[y][x] = Math.random() < 0.2 ? TILE.WALL : TILE.FLOOR;
-                    }
-                }
-            }
-
-            // Очищаем область вокруг игрока
-            for (let dy = -2; dy <= 2; dy++) {
-                for (let dx = -2; dx <= 2; dx++) {
-                    const nx = player.x + dx;
-                    const ny = player.y + dy;
-                    if (nx > 0 && nx < MAP_WIDTH - 1 && ny > 0 && ny < MAP_HEIGHT - 1) {
-                        map[ny][nx] = TILE.FLOOR;
-                    }
-                }
-            }
-
-            // Размещаем выход
-            let exitPlaced = false;
-            while (!exitPlaced) {
-                const ex = Math.floor(Math.random() * (MAP_WIDTH - 2)) + 1;
-                const ey = Math.floor(Math.random() * (MAP_HEIGHT - 2)) + 1;
-                if (map[ey][ex] === TILE.FLOOR && (Math.abs(ex - player.x) > 5 || Math.abs(ey - player.y) > 5)) {
-                    exit = { x: ex, y: ey };
-                    exitPlaced = true;
-                }
-            }
-
-            // Размещаем врагов
-            enemies = [];
-            const enemyCount = 3 + level;
-            for (let i = 0; i < enemyCount; i++) {
-                let placed = false;
-                while (!placed) {
-                    const ex = Math.floor(Math.random() * (MAP_WIDTH - 2)) + 1;
-                    const ey = Math.floor(Math.random() * (MAP_HEIGHT - 2)) + 1;
-                    if (map[ey][ex] === TILE.FLOOR && 
-                        (ex !== player.x || ey !== player.y) &&
-                        (ex !== exit.x || ey !== exit.y) &&
-                        Math.abs(ex - player.x) + Math.abs(ey - player.y) > 4) {
-                        enemies.push({
-                            x: ex,
-                            y: ey,
-                            health: 30 + level * 10,
-                            maxHealth: 30 + level * 10,
-                            attack: 5 + level * 2,
-                            type: Math.floor(Math.random() * 3)
-                        });
-                        placed = true;
-                    }
-                }
-            }
-
-            // Размещаем предметы
-            items = [];
-            const itemCount = 2 + Math.floor(level / 2);
-            for (let i = 0; i < itemCount; i++) {
-                let placed = false;
-                while (!placed) {
-                    const ix = Math.floor(Math.random() * (MAP_WIDTH - 2)) + 1;
-                    const iy = Math.floor(Math.random() * (MAP_HEIGHT - 2)) + 1;
-                    if (map[iy][ix] === TILE.FLOOR && 
-                        (ix !== player.x || iy !== player.y) &&
-                        (ix !== exit.x || iy !== exit.y)) {
-                        const itemType = Math.random() < 0.6 ? 'gold' : 'potion';
-                        items.push({
-                            x: ix,
-                            y: iy,
-                            type: itemType,
-                            value: itemType === 'gold' ? Math.floor(Math.random() * 20) + 10 : 25
-                        });
-                        placed = true;
-                    }
-                }
-            }
+        
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
         }
+        
+        window.addEventListener('resize', resize);
+        resize();
 
-        // Создание частиц
-        function createParticles(x, y, color, count = 10) {
-            for (let i = 0; i < count; i++) {
-                particles.push({
-                    x: x * TILE_SIZE + TILE_SIZE / 2,
-                    y: y * TILE_SIZE + TILE_SIZE / 2,
-                    vx: (Math.random() - 0.5) * 8,
-                    vy: (Math.random() - 0.5) * 8,
-                    life: 1.0,
-                    color: color,
-                    size: Math.random() * 4 + 2
-                });
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 0.5;
+                this.vy = (Math.random() - 0.5) * 0.5;
+                this.size = Math.random() * 2 + 1;
+                this.color = Math.random() > 0.5 ? '#00f3ff' : '#bc13fe';
             }
-        }
 
-        // Обновление частиц
-        function updateParticles() {
-            for (let i = particles.length - 1; i >= 0; i--) {
-                const p = particles[i];
-                p.x += p.vx;
-                p.y += p.vy;
-                p.life -= 0.02;
-                p.size *= 0.95;
-                
-                if (p.life <= 0) {
-                    particles.splice(i, 1);
-                }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
             }
-        }
 
-        // Отрисовка частиц
-        function drawParticles() {
-            particles.forEach(p => {
-                ctx.globalAlpha = p.life;
-                ctx.fillStyle = p.color;
-                ctx.shadowColor = p.color;
-                ctx.shadowBlur = 10;
+            draw() {
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
                 ctx.fill();
-            });
-            ctx.globalAlpha = 1.0;
-            ctx.shadowBlur = 0;
+            }
         }
 
-        // Движение игрока
-        function movePlayer(dx, dy) {
-            if (gameState !== 'playing') return;
+        // Initialize particles
+        for (let i = 0; i < 100; i++) {
+            particles.push(new Particle());
+        }
+
+        // Mouse interaction
+        let mouse = { x: null, y: null };
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.x;
+            mouse.y = e.y;
             
-            const newX = player.x + dx;
-            const newY = player.y + dy;
+            // 3D Tilt Effect on Hero Card
+            const card = document.getElementById('hero-card');
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
             
-            if (dx !== 0 || dy !== 0) {
-                player.direction = { x: dx, y: dy };
-            }
-
-            if (newX < 0 || newX >= MAP_WIDTH || newY < 0 || newY >= MAP_HEIGHT) return;
-            if (map[newY][newX] === TILE.WALL) return;
-
-            // Проверка на врага
-            const enemy = enemies.find(e => e.x === newX && e.y === newY);
-            if (enemy) {
-                attackEnemy(enemy);
-                return;
-            }
-
-            player.x = newX;
-            player.y = newY;
-
-            // Проверка на предмет
-            const itemIndex = items.findIndex(item => item.x === newX && item.y === newY);
-            if (itemIndex !== -1) {
-                const item = items[itemIndex];
-                if (item.type === 'gold') {
-                    gold += item.value;
-                    createParticles(newX, newY, '#ffd700', 15);
-                    showMessage(`+${item.value} золота!`, 1000);
-                } else if (item.type === 'potion') {
-                    player.health = Math.min(player.maxHealth, player.health + item.value);
-                    createParticles(newX, newY, '#0f0', 15);
-                    showMessage(`+${item.value} здоровья!`, 1000);
-                }
-                items.splice(itemIndex, 1);
-            }
-
-            // Проверка на выход (только если все враги убиты)
-            if (exit && player.x === exit.x && player.y === exit.y && enemies.length === 0) {
-                nextLevel();
-            }
-
-            updateUI();
-        }
-
-        // Атака игрока
-        function attackEnemy(enemy) {
-            if (player.isAttacking) return;
+            const rotateX = ((y - centerY) / centerY) * -10;
+            const rotateY = ((x - centerX) / centerX) * 10;
             
-            player.isAttacking = true;
-            player.attackTimer = 10;
-            
-            enemy.health -= player.attack;
-            createParticles(enemy.x, enemy.y, '#f00', 20);
-            showMessage(`Удар! -${player.attack}`, 500);
-
-            if (enemy.health <= 0) {
-                const index = enemies.indexOf(enemy);
-                if (index > -1) {
-                    enemies.splice(index, 1);
-                    createParticles(enemy.x, enemy.y, '#ff0', 30);
-                    showMessage('Враг повержен!', 1000);
-                }
-            }
-
-            updateUI();
-        }
-
-        // Ход врагов
-        function enemyTurn() {
-            enemies.forEach(enemy => {
-                const dx = player.x - enemy.x;
-                const dy = player.y - enemy.y;
-                const dist = Math.abs(dx) + Math.abs(dy);
-
-                if (dist === 1) {
-                    // Атака игрока
-                    player.health -= enemy.attack;
-                    createParticles(player.x, player.y, '#f0f', 15);
-                    showMessage(`Вас ударили! -${enemy.attack}`, 500);
-                    
-                    if (player.health <= 0) {
-                        gameOver();
-                    }
-                } else if (dist < 8) {
-                    // Преследование
-                    let moveX = 0, moveY = 0;
-                    if (Math.abs(dx) > Math.abs(dy)) {
-                        moveX = dx > 0 ? 1 : -1;
-                    } else {
-                        moveY = dy > 0 ? 1 : -1;
-                    }
-
-                    const newX = enemy.x + moveX;
-                    const newY = enemy.y + moveY;
-
-                    if (map[newY][newX] !== TILE.WALL && 
-                        !enemies.some(e => e.x === newX && e.y === newY) &&
-                        !(newX === player.x && newY === player.y)) {
-                        enemy.x = newX;
-                        enemy.y = newY;
-                    }
-                }
-            });
-
-            updateUI();
-        }
-
-        // Следующий уровень
-        function nextLevel() {
-            level++;
-            player.x = 1;
-            player.y = 1;
-            generateMap();
-            showMessage(`Уровень ${level}!`, 2000);
-            updateUI();
-        }
-
-        // Конец игры
-        function gameOver() {
-            gameState = 'lost';
-            showMessage(`ИГРА ОКОНЧЕНА\nВы достигли уровня ${level}\nЗолото: ${gold}\nНажмите R для рестарта`, 0);
-        }
-
-        // Победа (условная, так как уровни бесконечные)
-        function showWin() {
-            gameState = 'won';
-            showMessage(`ПОБЕДА!\nУровень: ${level}\nЗолото: ${gold}\nНажмите R для новой игры`, 0);
-        }
-
-        // Показать сообщение
-        function showMessage(text, duration) {
-            const msgEl = document.getElementById('message');
-            msgEl.textContent = text;
-            msgEl.style.display = 'block';
-            
-            if (duration > 0) {
-                setTimeout(() => {
-                    if (gameState === 'playing') {
-                        msgEl.style.display = 'none';
-                    }
-                }, duration);
-            }
-        }
-
-        // Обновление UI
-        function updateUI() {
-            document.getElementById('healthFill').style.width = `${(player.health / player.maxHealth) * 100}%`;
-            document.getElementById('goldCount').textContent = gold;
-            document.getElementById('levelCount').textContent = level;
-            document.getElementById('enemyCount').textContent = enemies.length;
-        }
-
-        // Отрисовка игры
-        function draw() {
-            // Очистка
-            ctx.fillStyle = '#0f0f1a';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Рисуем карту
-            for (let y = 0; y < MAP_HEIGHT; y++) {
-                for (let x = 0; x < MAP_WIDTH; x++) {
-                    const tile = map[y][x];
-                    const px = x * TILE_SIZE;
-                    const py = y * TILE_SIZE;
-
-                    if (tile === TILE.WALL) {
-                        ctx.fillStyle = '#2a2a4a';
-                        ctx.shadowColor = '#4a4a8a';
-                        ctx.shadowBlur = 5;
-                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                    } else if (tile === TILE.EXIT) {
-                        ctx.fillStyle = '#0f0';
-                        ctx.shadowColor = '#0f0';
-                        ctx.shadowBlur = 15;
-                        ctx.fillRect(px + 5, py + 5, TILE_SIZE - 10, TILE_SIZE - 10);
-                    } else {
-                        ctx.fillStyle = '#1a1a2e';
-                        ctx.shadowBlur = 0;
-                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                    }
-                }
-            }
-
-            // Рисуем выход, если все враги убиты
-            if (exit && enemies.length === 0) {
-                const px = exit.x * TILE_SIZE;
-                const py = exit.y * TILE_SIZE;
-                ctx.fillStyle = '#0f0';
-                ctx.shadowColor = '#0f0';
-                ctx.shadowBlur = 20;
-                ctx.fillRect(px + 5, py + 5, TILE_SIZE - 10, TILE_SIZE - 10);
-                
-                // Анимация портала
-                const pulse = Math.sin(Date.now() / 200) * 5 + 10;
-                ctx.strokeStyle = '#0f0';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(px + 5, py + 5, TILE_SIZE - 10, TILE_SIZE - 10);
-            }
-
-            // Рисуем предметы
-            items.forEach(item => {
-                const px = item.x * TILE_SIZE + TILE_SIZE / 2;
-                const py = item.y * TILE_SIZE + TILE_SIZE / 2;
-                
-                if (item.type === 'gold') {
-                    ctx.fillStyle = '#ffd700';
-                    ctx.shadowColor = '#ffd700';
-                    ctx.shadowBlur = 10;
-                    ctx.beginPath();
-                    ctx.arc(px, py, 8, 0, Math.PI * 2);
-                    ctx.fill();
-                } else if (item.type === 'potion') {
-                    ctx.fillStyle = '#0f0';
-                    ctx.shadowColor = '#0f0';
-                    ctx.shadowBlur = 10;
-                    ctx.beginPath();
-                    ctx.arc(px, py, 6, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.fillStyle = '#fff';
-                    ctx.fillRect(px - 2, py - 8, 4, 4);
-                }
-            });
-
-            // Рисуем врагов
-            enemies.forEach(enemy => {
-                const px = enemy.x * TILE_SIZE;
-                const py = enemy.y * TILE_SIZE;
-                
-                const colors = ['#f00', '#f80', '#f0f'];
-                ctx.fillStyle = colors[enemy.type % colors.length];
-                ctx.shadowColor = colors[enemy.type % colors.length];
-                ctx.shadowBlur = 10;
-                
-                // Тело врага
-                ctx.fillRect(px + 5, py + 5, TILE_SIZE - 10, TILE_SIZE - 10);
-                
-                // Полоска здоровья
-                const healthWidth = (enemy.health / enemy.maxHealth) * (TILE_SIZE - 10);
-                ctx.fillStyle = '#333';
-                ctx.fillRect(px + 5, py + 2, TILE_SIZE - 10, 4);
-                ctx.fillStyle = '#f00';
-                ctx.fillRect(px + 5, py + 2, healthWidth, 4);
-            });
-
-            // Рисуем игрока
-            const playerPx = player.x * TILE_SIZE;
-            const playerPy = player.y * TILE_SIZE;
-            
-            ctx.fillStyle = '#0ff';
-            ctx.shadowColor = '#0ff';
-            ctx.shadowBlur = 15;
-            
-            // Тело игрока
-            ctx.fillRect(playerPx + 5, playerPy + 5, TILE_SIZE - 10, TILE_SIZE - 10);
-            
-            // Эффект атаки
-            if (player.isAttacking) {
-                const attackX = playerPx + player.direction.x * TILE_SIZE;
-                const attackY = playerPy + player.direction.y * TILE_SIZE;
-                
-                ctx.fillStyle = '#fff';
-                ctx.shadowColor = '#fff';
-                ctx.shadowBlur = 20;
-                ctx.fillRect(attackX + 10, attackY + 10, TILE_SIZE - 20, TILE_SIZE - 20);
-            }
-
-            // Рисуем частицы
-            drawParticles();
-
-            ctx.shadowBlur = 0;
-        }
-
-        // Игровой цикл
-        function gameLoop() {
-            if (player.isAttacking) {
-                player.attackTimer--;
-                if (player.attackTimer <= 0) {
-                    player.isAttacking = false;
-                }
-            }
-
-            updateParticles();
-            enemyTurn();
-            draw();
-            
-            requestAnimationFrame(gameLoop);
-        }
-
-        // Управление
-        document.addEventListener('keydown', (e) => {
-            if (gameState === 'playing') {
-                switch(e.key) {
-                    case 'w':
-                    case 'W':
-                    case 'ArrowUp':
-                        movePlayer(0, -1);
-                        break;
-                    case 's':
-                    case 'S':
-                    case 'ArrowDown':
-                        movePlayer(0, 1);
-                        break;
-                    case 'a':
-                    case 'A':
-                    case 'ArrowLeft':
-                        movePlayer(-1, 0);
-                        break;
-                    case 'd':
-                    case 'D':
-                    case 'ArrowRight':
-                        movePlayer(1, 0);
-                        break;
-                    case ' ':
-                        // Атака в направлении движения
-                        const attackX = player.x + player.direction.x;
-                        const attackY = player.y + player.direction.y;
-                        const enemy = enemies.find(e => e.x === attackX && e.y === attackY);
-                        if (enemy) {
-                            attackEnemy(enemy);
-                        } else {
-                            // Анимация атаки в пустоту
-                            player.isAttacking = true;
-                            player.attackTimer = 10;
-                            createParticles(attackX, attackY, '#0ff', 10);
-                        }
-                        break;
-                }
-            } else if ((gameState === 'won' || gameState === 'lost') && e.key === 'r') {
-                // Рестарт
-                level = 1;
-                gold = 0;
-                player.health = player.maxHealth;
-                player.x = 1;
-                player.y = 1;
-                gameState = 'playing';
-                document.getElementById('message').style.display = 'none';
-                generateMap();
-                updateUI();
-            }
+            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
         });
 
-        // Инициализация
-        generateMap();
-        updateUI();
-        gameLoop();
+        window.addEventListener('mouseleave', () => {
+            mouse.x = null;
+            mouse.y = null;
+            document.getElementById('hero-card').style.transform = 'perspective(1000px) rotateX(0) rotateY(0)';
+        });
+
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+            
+            // Draw connections
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw();
+                
+                for (let j = i; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 100) {
+                        ctx.beginPath();
+                        ctx.strokeStyle = `rgba(0, 243, 255, ${1 - distance / 100})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+                
+                // Mouse interaction
+                if (mouse.x != null) {
+                    const dx = particles[i].x - mouse.x;
+                    const dy = particles[i].y - mouse.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < 150) {
+                        particles[i].vx -= dx * 0.0005;
+                        particles[i].vy -= dy * 0.0005;
+                    }
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        animate();
+
+        // --- UI Logic ---
+        function addLog(message, type = 'system') {
+            const container = document.getElementById('log-container');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+            
+            // Auto remove old logs
+            if (container.children.length > 20) {
+                container.removeChild(container.firstChild);
+            }
+        }
+
+        // Simulate live data
+        setInterval(() => {
+            document.getElementById('val-1').textContent = Math.floor(Math.random() * 500 + 1000);
+            document.getElementById('val-2').textContent = Math.floor(Math.random() * 20 + 5);
+            document.getElementById('val-3').textContent = Math.floor(Math.random() * 50 + 120);
+            document.getElementById('val-4').textContent = Math.floor(Math.random() * 100) + '%';
+            
+            const cpu = Math.floor(Math.random() * 30 + 10);
+            document.getElementById('cpu-load').textContent = cpu + '%';
+            document.getElementById('load-bar').style.width = cpu + '%';
+            
+            const mem = (Math.random() * 2 + 3).toFixed(1);
+            document.getElementById('mem-load').textContent = mem + ' GB';
+        }, 2000);
+
+        // Initial welcome log
+        setTimeout(() => {
+            addLog('User connection detected.', 'success');
+            addLog('Rendering neural interface...', 'system');
+        }, 1000);
     </script>
 </body>
 </html>
